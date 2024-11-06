@@ -4,7 +4,7 @@ const axios = require('axios');
 const app = express();
 const port = 9000;
 
-const ipAddress="http://192.168.1.17";
+const ipAddress="http://192.168.1.9";
 
 app.use(express.json());
 
@@ -16,10 +16,6 @@ app.post("/discoveryServer", async (req, res) => {
     
     if(!instances.some(instancesOb => instancesOb.ipAddress === instance.ipAddress && instancesOb.port === instance.port)){
         try {
-            await axios.post(`${ipAddress}:4000/middleware`, instance)
-            instances.push(instance)
-            res.status(200).end();
-            console.log("Instancia enviada al middleware", instance);
             await axios.post(`${ipAddress}:7000/monitor`, instance);
             instances.push(instance)
             res.status(200).end();

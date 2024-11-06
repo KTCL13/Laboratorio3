@@ -6,6 +6,7 @@ const cors = require("cors");
 const { Server } = require('socket.io');
 const { Client } = require('ssh2');
 const { strictEqual } = require('assert');
+const { time } = require('console');
 
 const app = express();
 const server = http.createServer(app);  // Crear el servidor HTTP
@@ -59,6 +60,44 @@ app.post("/monitor", (req, res) => {
     res.status(200).end();
     console.log("Instancias actualizadas: ", connections);
 });
+
+
+
+async function getClientOffset(coordinatorTime) {
+  let times = [];
+  for (let server of connections) {
+    const response = await axios.get(`http://${server.instance}/clientOffset?coordinatorTime=${coordinatorTime}`);
+    times.push(response.data.offset);
+  }
+  return times;
+}
+
+  function calculateAverage(times) {
+    const sum = times.reduce((a, b) => a + b, 0);
+    console.log(times.length)
+    return sum / (1 + times.length);
+  }
+
+  
+
+  async function syncTime() {
+    const response =await axios.get(`https://timeapi.io/api/time/current/zone?timeZone=EST`);
+    console.log(response.data.dateTime.split("T")[1].split(".")[0])
+    const coordinatorTime = new Date(response.data.dateTime)
+    const clientTimes = await getClientOffset(coordinatorTime);
+    const offset = calculateAverage(clientTimes);
+
+    console.log(offset)
+    
+    for (let server of connections) {
+      await axios.post(`http://${server.instance}/syncClock`, { offset });
+    }
+  }
+
+  app.get('/sync', async (req, res) => {
+    await syncTime();
+    res.send('Time synchronized');
+  });
 
 // Intervalo para verificar los servidores
 setInterval(async () => {
