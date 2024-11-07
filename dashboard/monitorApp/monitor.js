@@ -1,102 +1,61 @@
 const { createApp } = Vue;
 
+//const ipSocket = "http://localhost:3000"
+const ipSocket = "http://192.168.137.32:7000";
+
 createApp({
   data() {
     return {
       servers: [],
-      chart: null,
     };
   },
   mounted() {
+    const socket = io(ipSocket);
 
-    const socket = io('http://localhost:5000');
-    socket.on('update', (data) => {
-      this.servers = data.servers;
-      this.updateChart(); // Actualiza el gráfico cada vez que reciba datos
+    // Recibir datos de WebSocket en tiempo real
+    socket.on("update", (data) => {
+      if (JSON.stringify(this.servers) !== JSON.stringify(data.servers)) {
+        this.servers = data.servers;
+        console.log("Datos actualizados:", this.servers);
+      }
     });
 
-    this.loadLogs(); // Carga los logs del servidor
+    this.loadLogs();
   },
   methods: {
+    async runDockerCommand() {
+      console.log(`Llamando /run-docker`)
+      const response = await fetch(`${ipSocket}/run-docker`, { method: "POST" });
+      const result = await response.text();
+      console.log(`/run-docker -> ${result}`);
+    },
+    async stopRandomCont() {
+      console.log(`Llamando /stop-random-container`)
+      const response = await fetch(`${ipSocket}/stop-random-container`, { method: "GET" });
+      const result = await response.text();
+      console.log(`/stop-random-container -> ${result}`);
+    },
     async loadLogs() {
       try {
-        const response = await fetch("http://localhost:5000/status");
-        if (!response.ok) throw new Error("Network response was not ok");
+        console.log(`Llamando /status (obtener informacion manualmente (sin websockets))`)
+        const response = await fetch(`${ipSocket}/status`);
+        if (!response.ok) throw new Error("Error de red");
         const data = await response.json();
         this.servers = data.servers;
-        this.updateChart();
+        console.log(`/status -> ${this.servers}`)
       } catch (error) {
-        console.error("Error loading logs:", error);
+        console.error("Error al cargar los logs:", error);
       }
     },
-    initializeChart() {
-      const ctx = document.getElementById('statusChart').getContext('2d');
-      this.chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels: [], // Etiquetas del tiempo
-          datasets: [] // Conjuntos de datos vacíos que se llenarán dinámicamente
-        },
-        options: {
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: 'Tiempo'
-              }
-            },
-            y: {
-              title: {
-                display: true,
-                text: 'Estado'
-              },
-              ticks: {
-                callback: function (value) {
-                  return value >= 1 ? 'Up' : 'Down'; // Mostrar "Up" o "Down"
-                },
-                stepSize: 1,
-              },
-              min: 0,
-              max: 1.01
-            }
-          }
-        }
-      });
-    },
-    updateChart() {
-      if (!this.chart) return;
-
-      if (this.servers.length === 0 || !this.servers[0]?.history) return;
-
-      // Buscar el servidor con mas marcas de tiempo y basarse en esa cantidad.
-      const generalTimestamps = this.servers.reduce((prev, current) => {
-        return (prev.history.length > current.history.length) ? prev : current;
-      });
-
-      const timestamps = generalTimestamps.history.map(h => h.timestamp);
-
-      // Crear datasets para cada servidor
-      const datasets = this.servers.map(server => {
-        return {
-          label: server.instance,
-          data: server.history.map(h => h.status === 'up' ? 1 : 0), // Convertir "up" a 1 y "down" a 0
-          borderColor: this.getRandomColor(),
-          fill: false
-        };
-      });
-
-      // Actualiza los datos del gráfico
-      this.chart.data.labels = timestamps;
-      this.chart.data.datasets = datasets;
-      this.chart.update(); // Redibuja el gráfico
-    },
-    getRandomColor() {
-      const letters = '0123456789ABCDEF';
-      let color = '#';
-      for (let i = 0; i < 6; i++) {
-        color += letters[Math.floor(Math.random() * 16)];
+    async asyncOperation() {
+      try {
+        console.log(`Llamando /sync`)
+        const response = await fetch(`${ipSocket}/sync`, { method: "POST" });
+        const result = await response.text();
+        console.log(`/sync -> ${result}`);
+      } catch (error) {
+        console.error("Error en asyncOperation:", error);
       }
-      return color;
     }
-  }
+  },
 }).mount("#app");
