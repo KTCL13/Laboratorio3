@@ -1,7 +1,7 @@
 const { createApp } = Vue;
 
 //const ipSocket = "http://localhost:3000"
-const ipSocket = "http://192.168.137.32:7000";
+const ipSocket = "http://192.168.1.9:7000";
 
 createApp({
   data() {

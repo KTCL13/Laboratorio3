@@ -33,6 +33,10 @@
           <p class="pb-2 text-lg">
             Estado actual: {{ server.history[server.history.length - 1].status }}
           </p>
+
+          <p class="pb-2 text-lg">
+            Reloj: {{ server.time }}
+          </p>
           <div class="w-full h-48 overflow-y-auto">
             <table class="w-full border-collapse">
               <thead>
@@ -42,18 +46,15 @@
               </thead>
               <tbody>
                 <tr
-                  v-for="(log, index) in [...server.history].reverse()"
+                  v-for="(log, index) in [...server.logs].reverse()"
                   :key="index"
                   class="odd:bg-gray-100 even:bg-white"
                 >
                   <td class="border py-2">
                     <span class="text-gray-600 text-base"
-                      >{{ log.timestamp }}: {{ log.status }}</span
+                      >{{ log }}</span
                     >
-                    <span
-                      :class="log.status === 'up' ? 'bg-green-500' : 'bg-red-500'"
-                      class="inline-block w-4 h-4 rounded-full mx-1"
-                    ></span>
+
                   </td>
                 </tr>
               </tbody>
@@ -65,27 +66,12 @@
       <!-- Botones de control -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4">
         <div class="button-container mt-4 flex justify-center">
-          <button
-            @click="loadLogs"
-            class="bg-gray-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 text-xl rounded"
-          >
-            Cargar Logs
-          </button>
-        </div>
-        <div class="button-container mt-4 flex justify-center">
-          <button
-            @click="stopRandomCont"
-            class="bg-red-500 hover:bg-green-600 text-white font-semibold py-3 px-6 text-xl rounded"
-          >
-            Guardar Logs
-          </button>
-        </div>
         <div class="button-container mt-4 flex justify-center">
           <button
             @click="runDockerCommand"
             class="bg-green-500 hover:bg-red-600 text-white font-semibold py-3 px-6 text-xl rounded"
           >
-            Limpiar Logs
+            Nueva instancia
           </button>
         </div>
         <div class="button-container mt-4 flex justify-center">

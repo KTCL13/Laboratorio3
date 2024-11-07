@@ -54,7 +54,8 @@ app.post("/monitor", (req, res) => {
         history: [],
         status: 'up',
         id: idContainer,
-        logs: []
+        logs: [],
+        time: null
     });
 
     res.status(200).end();
@@ -72,6 +73,13 @@ async function getClientOffset(coordinatorTime) {
   return times;
 }
 
+async function getClientTimes() {
+    for (let server of connections) {
+      const response = await axios.get(`http://${server.instance}/clientHour`);
+      server.time = response.data.time
+    }
+  }
+
   function calculateAverage(times) {
     const sum = times.reduce((a, b) => a + b, 0);
     console.log(times.length)
@@ -86,8 +94,6 @@ async function getClientOffset(coordinatorTime) {
     const coordinatorTime = new Date(response.data.dateTime)
     const clientTimes = await getClientOffset(coordinatorTime);
     const offset = calculateAverage(clientTimes);
-
-    console.log(offset)
     
     for (let server of connections) {
       await axios.post(`http://${server.instance}/syncClock`, { offset });
@@ -98,6 +104,10 @@ async function getClientOffset(coordinatorTime) {
     await syncTime();
     res.send('Time synchronized');
   });
+
+setInterval(async () => {
+    getClientTimes()
+    io.emit("update", { servers: connections });},300)
 
 // Intervalo para verificar los servidores
 setInterval(async () => {
@@ -143,11 +153,12 @@ setInterval(async () => {
     });
 
     await Promise.all(promises);
-    console.log("Va a emitir");
 
     io.emit("update", { servers: connections });
-    console.log("Emitió");
-}, 7000);
+}, 10000);
+
+
+
 
 function handleServerFailure(server, error) {
     const isTimeout = error.message.includes('tardó más de 15 segundos');
