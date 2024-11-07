@@ -7,6 +7,10 @@ const { Server } = require('socket.io');
 const { Client } = require('ssh2');
 const { strictEqual } = require('assert');
 
+
+
+
+
 const app = express();
 const server = http.createServer(app);  // Crear el servidor HTTP
 const io = new Server(server, {
@@ -15,6 +19,8 @@ const io = new Server(server, {
         methods: ["GET", "POST"],
     },
 });
+
+
 
 app.use(cors());
 app.use(express.json());
@@ -198,11 +204,6 @@ function runContainer(callback) {
         -e INTERVAL=${interval} \
         -p ${hostPort}:${containerPort} my-node-app
     `;
-
-    
-function getRandomNumber() {
-    return Math.floor(Math.random() * (10 - (-5) + 1)) - 5;
-  }
 
     executeSSHCommand(command, callback);
 }
