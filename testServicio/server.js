@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors'); // <-- Importa CORS
-const morgan = require('morgan');
 const { off } = require('process');
 const app = express();
 
@@ -11,7 +10,7 @@ const ipAddress = process.env.IP_ADDRESS || "localhost";
 const containerName = process.env.CONTAINER_NAME;
 let logicalClock = new Date();
 const interval = 1000 + process.env.INTERVAL || 1500;
-const disServerip= process.env.DIS_SERVERIP_PORT || "192.168.1.9:9000"
+const disServerip= process.env.DIS_SERVERIP_PORT || "192.168.1.11:9000"
 let event = 0
 let localOffset = 0
 
@@ -20,22 +19,18 @@ app.use(express.json());
 
 let logsArray = []; 
 
-morgan.token('event', (req, res, tz) => {
-  event = event + 1;
-  return event;
-});
-
-const morganLogs = morgan('event:[:event] ":method :url HTTP/:http-version" :status :res[content-length] ":remote-addr ":user-agent"', {
-  stream: {
-    write: (log) => {
-      console.log(log)
-      logsArray.push(log); 
-    }
+function createLog(req, res) {
+  event += 1
+  let log = "";
+  if(!req){
+      console.log(res.config)
+      log = `event:${event}"${res.config.url}" "${JSON.stringify(res.data)}" `; 
+  }else{
+      log = `event:${event} "${req.method} ${req.originalUrl} HTTP/${req.httpVersion}" ${res.statusCode} ${res.get('Content-Length') || 0} "${req.ip}" "${req.get('User-Agent')}" "${req.body} ${req.query}"`;
   }
-});
-
-
-app.use(morganLogs);
+  console.log(log)
+  logsArray.push(log);
+}
 
 function displayClock() {
     console.log(logicalClock.toTimeString().split(" ")[0]);
@@ -62,6 +57,7 @@ app.get("/clientHour", (req, res) => {
 
 
 app.get("/clientOffset", (req, res) => {
+  createLog(req,res)
   const coordinatorTime = new Date(req.query.coordinatorTime)
   console.log(coordinatorTime)
   localOffset = logicalClock.getTime() - coordinatorTime.getTime() 
@@ -70,6 +66,7 @@ app.get("/clientOffset", (req, res) => {
 });
 
 app.post('/syncClock', (req, res) => {
+  createLog(req,res)
   const { offset } = req.body;
   logicalClock = new Date(logicalClock.getTime() + localOffset*-1 + offset);
   res.send('Time adjusted');
@@ -90,10 +87,7 @@ const startServer = async () => {
       body: JSON.stringify({ ipAddress: ipAddress, port: hostPort , id: containerName }),
     };
 
-    await fetch(`http://${disServerip}/discoveryserver`, requestOptions)
-      .then((response) => {
-        console.log(response.status);
-      });
+   const response = await fetch(`http://${disServerip}/discoveryserver`, requestOptions)
   } catch (error) {
     console.error('Error al obtener la IP:', error);
   }

@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 const { Client } = require('ssh2');
 const { strictEqual } = require('assert');
 const { time } = require('console');
+const { Socket } = require('dgram');
 
 
 
@@ -28,7 +29,32 @@ app.use(express.json());
 
 const port = process.env.PORT; 
 const MAX_HISTORY = 20;
-let connections = [];
+let connections = []
+const logsArray = []
+let event = 0
+
+const Coordinator= {
+    instance: 'Coordinator',
+    history: [{status:"up"}],
+    status: 'up',
+    id: null,
+    logs: logsArray,
+    time: null
+  };
+
+function createLog(req, res) {
+    event += 1
+    let log = "";
+    if(!req){
+        console.log(res.config)
+        log = `event:${event}"${res.config.url}" "${JSON.stringify(res.data)}" `; 
+    }else{
+        log = `event:${event} "${req.method} ${req.originalUrl} HTTP/${req.httpVersion}" ${res.statusCode} ${res.get('Content-Length') || 0} "${req.ip}" "${req.get('User-Agent')}"`;
+    }
+    console.log(log)
+    logsArray.push(log);
+  }
+  
 
 // Rutas para los logs y los monitores
 app.get("/status", (req, res) => {
@@ -74,6 +100,7 @@ async function getClientOffset(coordinatorTime) {
   let times = [];
   for (let server of connections) {
     const response = await axios.get(`http://${server.instance}/clientOffset?coordinatorTime=${coordinatorTime}`);
+    createLog(null,response)
     times.push(response.data.offset);
   }
   return times;
@@ -81,8 +108,14 @@ async function getClientOffset(coordinatorTime) {
 
 async function getClientTimes() {
     for (let server of connections) {
-      const response = await axios.get(`http://${server.instance}/clientHour`);
-      server.time = response.data.time
+        if(server.status=="up"){
+            try{
+                const response = await axios.get(`http://${server.instance}/clientHour`);
+                server.time = response.data.time
+            }catch (error){
+                console.log("no se puede obtener la hora de:" + server.instance)
+        } 
+        }
     }
   }
 
@@ -96,7 +129,7 @@ async function getClientTimes() {
 
   async function syncTime() {
     const response =await axios.get(`https://timeapi.io/api/time/current/zone?timeZone=EST`);
-    console.log(response.data.dateTime.split("T")[1].split(".")[0])
+    createLog(null,response)
     const coordinatorTime = new Date(response.data.dateTime)
     const clientTimes = await getClientOffset(coordinatorTime);
     const offset = calculateAverage(clientTimes);
@@ -107,13 +140,15 @@ async function getClientTimes() {
   }
 
   app.get('/sync', async (req, res) => {
+    createLog(req, res)
     await syncTime();
     res.send('Time synchronized');
   });
 
 setInterval(async () => {
     getClientTimes()
-    io.emit("update", { servers: connections });},300)
+
+    io.emit("update", { servers: [...connections, Coordinator] });},300)
 
 // Intervalo para verificar los servidores
 setInterval(async () => {
@@ -123,7 +158,6 @@ setInterval(async () => {
         );
 
     const promises = connections.map(async (server) => {
-        console.log(`Verificando ${server.instance}`);
         const startTime = Date.now();
         try {
             const respuesta = await Promise.race([
@@ -138,7 +172,6 @@ setInterval(async () => {
             if (respuesta.status === 200) {
                 server.status = 'up';
                 server.message = `Tardó ${responseTime}`;
-                console.log('Respuesta:', respuesta.data);
             } else {
                 handleServerFailure(server, respuesta);
                 
@@ -160,8 +193,8 @@ setInterval(async () => {
 
     await Promise.all(promises);
 
-    io.emit("update", { servers: connections });
-}, 10000);
+      io.emit("update", { servers: [...connections, Coordinator] });
+}, 1000);
 
 
 
@@ -182,8 +215,8 @@ function handleServerFailure(server, error) {
     console.log(`Fallo en ${server.instance}: ${isTimeout ? 'Timeout' : error.message}`);
 }
 
-io.on("connection", (_) => {
-    console.log("Un usuario se conectó");
+io.on("connection", (socket) => {
+    console.log("Usuario: "+ socket.handshake.address + " conectado" );
 });
 
 const sshConfig = {

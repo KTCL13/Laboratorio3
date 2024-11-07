@@ -1,7 +1,7 @@
 const { createApp } = Vue;
 
 //const ipSocket = "http://localhost:3000"
-const ipSocket = "http://192.168.1.9:7000";
+const ipSocket = "http://192.168.137.53:7000";
 
 createApp({
   data() {
@@ -19,8 +19,6 @@ createApp({
         console.log("Datos actualizados:", this.servers);
       }
     });
-
-    this.loadLogs();
   },
   methods: {
     async runDockerCommand() {
@@ -35,22 +33,10 @@ createApp({
       const result = await response.text();
       console.log(`/stop-random-container -> ${result}`);
     },
-    async loadLogs() {
-      try {
-        console.log(`Llamando /status (obtener informacion manualmente (sin websockets))`)
-        const response = await fetch(`${ipSocket}/status`);
-        if (!response.ok) throw new Error("Error de red");
-        const data = await response.json();
-        this.servers = data.servers;
-        console.log(`/status -> ${this.servers}`)
-      } catch (error) {
-        console.error("Error al cargar los logs:", error);
-      }
-    },
     async asyncOperation() {
       try {
         console.log(`Llamando /sync`)
-        const response = await fetch(`${ipSocket}/sync`, { method: "POST" });
+        const response = await fetch(`${ipSocket}/sync`, { method: "GET" });
         const result = await response.text();
         console.log(`/sync -> ${result}`);
       } catch (error) {
